@@ -235,6 +235,25 @@ def chroma_key(img, bg, lo, hi, open_k=5, close_k=9, feather=2.0):
     # ───────────────────────── ВАШ КОД ─────────────────────────
     # 6–9 строк: color_mask → largest_component (None → ошибка); альфа = маска/255 (GaussianBlur σ = feather для мягкого края); композит img·α + bg·(1 − α)
 
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+    if lo[0] <= hi[0]:
+        before_mask = cv2.inRange(hsv, np.array(lo), np.array(hi))
+    else:
+        mask1 = cv2.inRange(
+            hsv,
+            np.array((0, lo[1], lo[2])),
+            np.array(hi)
+        )
+        mask2 = cv2.inRange(
+            hsv,
+            np.array(lo),
+            np.array((179, hi[1], hi[2]))
+        )
+        before_mask = cv2.bitwise_or(mask1, mask2)
+
+    components_before = cv2.connectedComponents(before_mask)[0] - 1
+
     raw_mask = color_mask(img, lo, hi, open_k, close_k)
 
     result = largest_component(raw_mask)
@@ -268,7 +287,8 @@ def chroma_key(img, bg, lo, hi, open_k=5, close_k=9, feather=2.0):
 
     stats = {
         "mask_pct": round(100 * float((mask > 0).mean()), 2),
-        "components": info["components"],
+        "components_before": int(components_before),
+        "components_after": int(info["components"]),
         "holes": holes
     }
 
